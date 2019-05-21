@@ -1,0 +1,38 @@
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: UseRubyVersion@0
+  inputs:
+    versionSpec: '>= 2.4'
+
+- script: gem install hiptest-publisher
+  displayName: 'install hiptest-publisher'
+
+- script: hiptest-publisher -c specflow.conf --token=$(SECRET_TOKEN) --only=features,step_definitions --test-run-id=$(TEST_RUN_ID)
+
+- task: NuGetCommand@2
+  inputs:
+    command: 'restore'
+    restoreSolution: '**/*.sln'
+    feedsToUse: 'select'
+    versioningScheme: 'off'
+
+- task: MSBuild@1
+  inputs:
+    solution: '**/*.csproj'
+    msbuildArguments: '/t:BuildNUnitFiles'
+
+- task: MSBuild@1
+  inputs:
+    solution: '**/*.csproj'
+
+- task: MSBuild@1
+  inputs:
+    solution: '**/*.csproj'
+    msbuildArguments: '/t:Test'    
+
+- script: hiptest-publisher -c specflow.conf --token=$(SECRET_TOKEN) --push=report.json --test-run-id=$(TEST_RUN_ID)
